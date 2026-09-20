@@ -1,0 +1,162 @@
+services:
+  auth-service:
+    build:
+      context: ./services/auth-service
+    container_name: auth-service
+    env_file:
+      - ./services/auth-service/.env
+    environment:
+      - PORT=3009
+    expose:
+      - "3009"
+    restart: unless-stopped
+
+  patient-service:
+    build:
+      context: ./services/patient-service
+    container_name: patient-service
+    env_file:
+      - ./services/patient-service/.env
+    environment:
+      - PORT=3001
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+  doctor-service:
+    build:
+      context: ./services/doctor-service
+    container_name: doctor-service
+    env_file:
+      - ./services/doctor-service/.env
+    environment:
+      - PORT=3002
+      - PATIENT_SERVICE_URL=http://patient-service:3001
+    expose:
+      - "3002"
+    depends_on:
+      - patient-service
+    restart: unless-stopped
+
+  admin-service:
+    build:
+      context: ./services/admin-service
+    container_name: admin-service
+    env_file:
+      - ./services/admin-service/.env
+    environment:
+      - PORT=3003
+      - PATIENT_SERVICE_URL=http://patient-service:3001
+      - DOCTOR_SERVICE_URL=http://doctor-service:3002
+    expose:
+      - "3003"
+    depends_on:
+      - patient-service
+      - doctor-service
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    container_name: notification-service
+    env_file:
+      - ./services/notification-service/.env
+    environment:
+      - PORT=3005
+    expose:
+      - "3005"
+    restart: unless-stopped
+
+  appointment-service:
+    build:
+      context: ./services/appointment-service
+    container_name: appointment-service
+    env_file:
+      - ./services/appointment-service/.env
+    environment:
+      - PORT=3004
+      - PATIENT_SERVICE_URL=http://patient-service:3001
+      - DOCTOR_SERVICE_URL=http://doctor-service:3002
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3005
+    expose:
+      - "3004"
+    depends_on:
+      - patient-service
+      - doctor-service
+      - notification-service
+    restart: unless-stopped
+
+  telemedicine-service:
+    build:
+      context: ./services/telemedicine-service
+    container_name: telemedicine-service
+    env_file:
+      - ./services/telemedicine-service/.env
+    environment:
+      - PORT=3006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3005
+    expose:
+      - "3006"
+    depends_on:
+      - notification-service
+    restart: unless-stopped
+
+  ai-service:
+    build:
+      context: ./services/ai-service
+    container_name: ai-service
+    env_file:
+      - ./services/ai-service/.env
+    environment:
+      - PORT=3007
+    expose:
+      - "3007"
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+    container_name: payment-service
+    env_file:
+      - ./services/payment-service/.env
+    environment:
+      - PORT=3008
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:3004
+      - FRONTEND_URL=http://localhost:5173
+    expose:
+      - "3008"
+    depends_on:
+      - appointment-service
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+    container_name: api-gateway
+    env_file:
+      - ./services/api-gateway/.env
+    environment:
+      - PORT=3000
+      - FRONTEND_URL=http://localhost:5173
+      - AUTH_SERVICE_URL=http://auth-service:3009
+      - PATIENT_SERVICE_URL=http://patient-service:3001
+      - DOCTOR_SERVICE_URL=http://doctor-service:3002
+      - ADMIN_SERVICE_URL=http://admin-service:3003
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:3004
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3005
+      - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:3006
+      - AI_SERVICE_URL=http://ai-service:3007
+      - PAYMENT_SERVICE_URL=http://payment-service:3008
+    ports:
+      - "3010:3000"
+    depends_on:
+      - auth-service
+      - patient-service
+      - doctor-service
+      - admin-service
+      - appointment-service
+      - notification-service
+      - telemedicine-service
+      - ai-service
+      - payment-service
+    restart: unless-stopped
