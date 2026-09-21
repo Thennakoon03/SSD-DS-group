@@ -5,10 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiBase = env.VITE_API_BASE_URL || 'http://20.247.169.212:3000/api'
-  const proxyTarget = /^https?:\/\//i.test(apiBase)
-    ? apiBase.replace(/\/api\/?$/i, '')
-    : 'http://20.247.169.212:3000'
+  const proxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:3010'
 
   return {
     plugins: [
