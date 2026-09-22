@@ -2,11 +2,36 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import axios from 'axios';
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    return `${ipKeyGenerator(req.ip)}:${email}`;
+  },
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many login attempts. Please try again later.',
+    });
+  },
+});
+
+const PASSWORD_LOGIN_PATHS = new Set([
+  '/api/auth/patient/login',
+  '/api/auth/doctor/login',
+  '/api/auth/admin/login',
+]);
 
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'https://healthcare-project-six.vercel.app',
@@ -20,6 +45,13 @@ app.use((req, res, next) => {
   } else {
     express.json()(req, res, next);
   }
+});
+
+app.use((req, res, next) => {
+  if (req.method === 'POST' && PASSWORD_LOGIN_PATHS.has(req.path)) {
+    return loginLimiter(req, res, next);
+  }
+  next();
 });
 
 // ── Service URLs ──────────────────────────────────────────────────────────────
