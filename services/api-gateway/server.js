@@ -8,6 +8,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3009';
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -33,6 +34,17 @@ const PASSWORD_LOGIN_PATHS = new Set([
   '/api/auth/admin/login',
 ]);
 
+const PUBLIC_AUTH_PATHS = new Set([
+  '/api/auth/patient/register',
+  '/api/auth/patient/login',
+  '/api/auth/patient/google',
+  '/api/auth/doctor/register',
+  '/api/auth/doctor/login',
+  '/api/auth/doctor/google',
+  '/api/auth/admin/login',
+  '/api/auth/verify',
+]);
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'https://healthcare-project-six.vercel.app',
   credentials: true,
@@ -54,9 +66,35 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ') || PUBLIC_AUTH_PATHS.has(req.path)) {
+    return next();
+  }
+
+  try {
+    const response = await axios.get(`${AUTH_SERVICE_URL}/api/auth/verify`, {
+      headers: { Authorization: authHeader },
+      validateStatus: () => true,
+    });
+
+    if (response.status !== 200) {
+      return res.status(401).json({
+        success: false,
+        message: response.data?.message || 'Invalid or expired token',
+      });
+    }
+
+    next();
+  } catch (err) {
+    console.error(`[Gateway] Token verification failed: ${err.message}`);
+    res.status(503).json({ success: false, message: 'Authentication service unavailable' });
+  }
+});
+
 // ── Service URLs ──────────────────────────────────────────────────────────────
 const ROUTES = [
-  { prefix: '/api/auth',          target: process.env.AUTH_SERVICE_URL         || 'http://localhost:3009' },
+  { prefix: '/api/auth',          target: AUTH_SERVICE_URL },
   { prefix: '/api/patients',      target: process.env.PATIENT_SERVICE_URL      || 'http://localhost:3001' },
   { prefix: '/api/reports',       target: process.env.PATIENT_SERVICE_URL      || 'http://localhost:3001' },
   { prefix: '/api/doctors',       target: process.env.DOCTOR_SERVICE_URL       || 'http://localhost:3002' },

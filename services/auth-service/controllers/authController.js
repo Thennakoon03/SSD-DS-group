@@ -1,14 +1,11 @@
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 import Patient from '../models/Patient.js';
 import Doctor  from '../models/Doctor.js';
 import Admin   from '../models/Admin.js';
+import { generateToken, revokeToken, verifyActiveToken } from '../utils/tokenSecurity.js';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-const generateToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
 const MODEL = { patient: Patient, doctor: Doctor, admin: Admin };
 const googleClient = new OAuth2Client();
 
@@ -315,20 +312,23 @@ export const loginAdmin = async (req, res) => {
 };
 
 // ── LOGOUT ────────────────────────────────────────────────────────────────────
-// JWT is stateless — logout is handled client-side by discarding the token.
-// This endpoint exists as a clean hook (e.g. for future token blacklisting).
-export const logout = (req, res) => {
-  res.json({ success: true, message: 'Logged out successfully' });
+export const logout = async (req, res) => {
+  try {
+    await revokeToken(req.token, req.user.exp);
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch {
+    res.status(500).json({ success: false, message: 'Logout failed' });
+  }
 };
 
 // ── TOKEN VERIFY (used by API gateway / other services) ───────────────────────
-export const verifyToken = (req, res) => {
+export const verifyToken = async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, message: 'No token provided' });
   }
   try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+    const decoded = await verifyActiveToken(authHeader.split(' ')[1]);
     res.json({ success: true, data: decoded });
   } catch {
     res.status(401).json({ success: false, message: 'Invalid or expired token' });

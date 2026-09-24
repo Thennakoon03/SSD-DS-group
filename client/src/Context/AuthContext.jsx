@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authAPI } from '../utils/api';
 
 const AuthContext = createContext(null);
 
@@ -42,11 +43,22 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    if (user?.token) {
+      try {
+        await authAPI.logout();
+      } catch (error) {
+        if (error.response?.status !== 401) {
+          return false;
+        }
+      }
+    }
+
     localStorage.removeItem(STORAGE_KEY);
     setUser(null);
     navigate('/');
-  }, [navigate]);
+    return true;
+  }, [navigate, user?.token]);
 
   return (
     <AuthContext.Provider value={{ user, saveUser, updateUser, logout, isLoggedIn: !!user }}>
