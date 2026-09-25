@@ -24,7 +24,7 @@ router.post('/admin/register', protect, requireAdmin, registerAdmin);
 router.post('/admin/login',    loginAdmin);
 
 // ── Shared ────────────────────────────────────────────────────────────────────
-router.post('/logout',  logout);
+router.post('/logout',  protect, logout);
 router.get('/verify',   verifyToken);
 
 export default router;
