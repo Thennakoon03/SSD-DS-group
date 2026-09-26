@@ -395,6 +395,33 @@ export const updatePaymentStatus = async (req, res) => {
   }
 };
 
+// Internal (doctor-service): Check whether a doctor has a permitted appointment
+// relationship with a patient. Used to authorize access to patient data before
+// the doctor service is allowed to fetch that patient's profile/reports.
+export const checkDoctorPatientAccess = async (req, res) => {
+  try {
+    const { doctorId, patientId } = req.params;
+
+    if (!doctorId || !patientId) {
+      return res.status(400).json({ success: false, authorized: false, message: 'doctorId and patientId are required' });
+    }
+
+    const relationshipExists = await Appointment.exists({
+      doctorId,
+      patientId,
+      status: { $in: ['pending', 'confirmed', 'completed'] },
+    });
+
+    if (!relationshipExists) {
+      return res.status(403).json({ success: false, authorized: false, message: 'Access denied' });
+    }
+
+    res.json({ success: true, authorized: true });
+  } catch {
+    res.status(500).json({ success: false, authorized: false, message: 'Internal server error' });
+  }
+};
+
 // Internal (payment-service): Get appointment status snapshot
 export const getAppointmentStatusInternal = async (req, res) => {
   try {
