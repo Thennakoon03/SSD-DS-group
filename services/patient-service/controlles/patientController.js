@@ -2,6 +2,17 @@ import bcrypt from 'bcryptjs';
 import Patient from '../models/Patient.js';
 import Report from '../models/Report.js';
 import { v2 as cloudinary } from 'cloudinary';
+import xss from 'xss';
+
+const sanitizeProfileText = (val, maxLen = 200) => {
+  if (typeof val !== 'string') return val;
+  const trimmed = val.trim().slice(0, maxLen);
+  return xss(trimmed, {
+    whiteList: {},
+    stripIgnoreTag: true,
+    stripIgnoreTagBody: ['script', 'style', 'xml', 'iframe', 'object', 'embed'],
+  });
+};
 
 //Get Profile
 export const getProfile = async (req, res) => {
@@ -19,7 +30,7 @@ export const getProfile = async (req, res) => {
   }
 };
 
-//Update Profile (all optional fields)
+//Update Profile (all optional fields, sanitized against XSS)
 export const updateProfile = async (req, res) => {
   try {
     const patient = await Patient.findById(req.user.id);
@@ -33,22 +44,36 @@ export const updateProfile = async (req, res) => {
       currentMedications, emergencyContact,
     } = req.body;
 
-    if (firstName)          patient.firstName          = firstName;
-    if (lastName)           patient.lastName           = lastName;
-    if (nic !== undefined)  patient.nic                = nic;
-    if (phone !== undefined)       patient.phone       = phone;
-    if (dateOfBirth !== undefined)  patient.dateOfBirth = dateOfBirth;
-    if (gender !== undefined)       patient.gender      = gender;
-    if (bloodGroup !== undefined)   patient.bloodGroup  = bloodGroup;
+    if (firstName !== undefined)          patient.firstName          = sanitizeProfileText(firstName, 60);
+    if (lastName !== undefined)           patient.lastName           = sanitizeProfileText(lastName, 60);
+    if (nic !== undefined)                patient.nic                = sanitizeProfileText(nic, 30);
+    if (phone !== undefined)              patient.phone              = sanitizeProfileText(phone, 30);
+    if (dateOfBirth !== undefined)        patient.dateOfBirth        = dateOfBirth;
+    if (gender !== undefined)             patient.gender             = sanitizeProfileText(gender, 20);
+    if (bloodGroup !== undefined)         patient.bloodGroup         = sanitizeProfileText(bloodGroup, 10);
 
-    if (address) {
-      patient.address = { ...patient.address?.toObject?.() ?? {}, ...address };
+    if (address && typeof address === 'object') {
+      const sanitizedAddress = {
+        line1:   sanitizeProfileText(address.line1, 100),
+        line2:   sanitizeProfileText(address.line2, 100),
+        city:    sanitizeProfileText(address.city, 60),
+        state:   sanitizeProfileText(address.state, 60),
+        zipCode: sanitizeProfileText(address.zipCode, 20),
+      };
+      patient.address = { ...patient.address?.toObject?.() ?? {}, ...sanitizedAddress };
     }
-    if (allergies)          patient.allergies          = allergies;
-    if (chronicDiseases)    patient.chronicDiseases    = chronicDiseases;
-    if (currentMedications) patient.currentMedications = currentMedications;
-    if (emergencyContact) {
-      patient.emergencyContact = { ...patient.emergencyContact?.toObject?.() ?? {}, ...emergencyContact };
+
+    if (allergies !== undefined)          patient.allergies          = sanitizeProfileText(allergies, 500);
+    if (chronicDiseases !== undefined)    patient.chronicDiseases    = sanitizeProfileText(chronicDiseases, 500);
+    if (currentMedications !== undefined) patient.currentMedications = sanitizeProfileText(currentMedications, 500);
+
+    if (emergencyContact && typeof emergencyContact === 'object') {
+      const sanitizedEmergency = {
+        name:         sanitizeProfileText(emergencyContact.name, 100),
+        relationship: sanitizeProfileText(emergencyContact.relationship, 50),
+        phone:        sanitizeProfileText(emergencyContact.phone, 30),
+      };
+      patient.emergencyContact = { ...patient.emergencyContact?.toObject?.() ?? {}, ...sanitizedEmergency };
     }
 
     const updated = await patient.save();

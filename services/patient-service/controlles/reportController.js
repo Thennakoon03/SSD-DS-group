@@ -1,7 +1,24 @@
 import Report from '../models/Report.js';
 import cloudinary from '../config/cloudinaryConfig.js';
+import xss from 'xss';
 
-//Upload a medical report
+const ALLOWED_REPORT_TYPES = ['lab_report', 'prescription', 'scan', 'discharge_summary', 'other'];
+const ALLOWED_FORMATS = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+
+/**
+ * Strips all HTML tags, script elements, and dangerous event handlers from untrusted text.
+ */
+const sanitizeInput = (str, maxLength = 1000) => {
+  if (typeof str !== 'string') return '';
+  const trimmed = str.trim().slice(0, maxLength);
+  return xss(trimmed, {
+    whiteList: {}, // Disallow all HTML tags
+    stripIgnoreTag: true,
+    stripIgnoreTagBody: ['script', 'style', 'xml', 'iframe', 'object', 'embed'],
+  });
+};
+
+// Upload a medical report with strict validation and XSS sanitization
 export const uploadReport = async (req, res) => {
   try {
     if (!req.file) {
@@ -10,18 +27,42 @@ export const uploadReport = async (req, res) => {
 
     const { title, description, reportType } = req.body;
 
-    if (!title) {
+    if (!title || typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({ success: false, message: 'Report title is required' });
     }
 
+    if (title.trim().length > 120) {
+      return res.status(400).json({ success: false, message: 'Report title cannot exceed 120 characters' });
+    }
+
+    const sanitizedTitle = sanitizeInput(title, 120);
+    if (!sanitizedTitle) {
+      return res.status(400).json({ success: false, message: 'Report title contains invalid or disallowed characters' });
+    }
+
+    let sanitizedDescription = null;
+    if (description && typeof description === 'string' && description.trim()) {
+      if (description.trim().length > 1000) {
+        return res.status(400).json({ success: false, message: 'Description cannot exceed 1000 characters' });
+      }
+      sanitizedDescription = sanitizeInput(description, 1000);
+    }
+
+    const chosenType = (reportType && ALLOWED_REPORT_TYPES.includes(reportType.trim()))
+      ? reportType.trim()
+      : 'lab_report';
+
+    const rawFormat = (req.file.originalname?.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const fileFormat = ALLOWED_FORMATS.includes(rawFormat) ? rawFormat : 'pdf';
+
     const report = await Report.create({
       patient: req.user.id,
-      title,
-      description: description || null,
-      reportType: reportType || 'lab_report',
+      title: sanitizedTitle,
+      description: sanitizedDescription,
+      reportType: chosenType,
       fileUrl: req.file.path,     
       publicId: req.file.filename,   
-      fileFormat: req.file.originalname?.split('.').pop() || null,
+      fileFormat,
     });
 
     res.status(201).json({ success: true, message: 'Report uploaded successfully', data: report });
@@ -30,7 +71,7 @@ export const uploadReport = async (req, res) => {
   }
 };
 
-//Get all reports for logged-in patient
+// Get all reports for logged-in patient
 export const getMyReports = async (req, res) => {
   try {
     const reports = await Report.find({ patient: req.user.id }).sort({ createdAt: -1 });
@@ -40,7 +81,7 @@ export const getMyReports = async (req, res) => {
   }
 };
 
-//Get a single report by ID 
+// Get a single report by ID 
 export const getReportById = async (req, res) => {
   try {
     const report = await Report.findById(req.params.id);
@@ -60,7 +101,7 @@ export const getReportById = async (req, res) => {
   }
 };
 
-// Update report metadata
+// Update report metadata with XSS sanitization and type enforcement
 export const updateReport = async (req, res) => {
   try {
     const report = await Report.findById(req.params.id);
@@ -74,20 +115,35 @@ export const updateReport = async (req, res) => {
     }
 
     const { title, description, reportType } = req.body;
-    const VALID_REPORT_TYPES = ['lab_report', 'prescription', 'scan', 'discharge_summary', 'other'];
 
-    if (typeof title !== 'string' || !title.trim()) {
-      return res.status(400).json({ success: false, message: 'Report title is required' });
+    if (title !== undefined) {
+      if (typeof title !== 'string' || !title.trim()) {
+        return res.status(400).json({ success: false, message: 'Report title cannot be empty' });
+      }
+      if (title.trim().length > 120) {
+        return res.status(400).json({ success: false, message: 'Report title cannot exceed 120 characters' });
+      }
+      const sanitizedTitle = sanitizeInput(title, 120);
+      if (!sanitizedTitle) {
+        return res.status(400).json({ success: false, message: 'Report title contains invalid or disallowed characters' });
+      }
+      report.title = sanitizedTitle;
     }
 
-    report.title = title.trim();
-    report.description = typeof description === 'string' && description.trim()
-      ? description.trim()
-      : null;
+    if (description !== undefined) {
+      if (typeof description === 'string' && description.trim()) {
+        if (description.trim().length > 1000) {
+          return res.status(400).json({ success: false, message: 'Description cannot exceed 1000 characters' });
+        }
+        report.description = sanitizeInput(description, 1000);
+      } else {
+        report.description = null;
+      }
+    }
 
     if (typeof reportType === 'string' && reportType.trim()) {
       const normalizedType = reportType.trim();
-      if (!VALID_REPORT_TYPES.includes(normalizedType)) {
+      if (!ALLOWED_REPORT_TYPES.includes(normalizedType)) {
         return res.status(400).json({ success: false, message: 'Invalid report type' });
       }
       report.reportType = normalizedType;
@@ -95,10 +151,13 @@ export const updateReport = async (req, res) => {
 
     // If a new file is uploaded, replace cloud metadata and best-effort cleanup old file.
     if (req.file) {
+      const rawFormat = (req.file.originalname?.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const fileFormat = ALLOWED_FORMATS.includes(rawFormat) ? rawFormat : 'pdf';
+
       const oldPublicId = report.publicId;
       report.fileUrl = req.file.path;
       report.publicId = req.file.filename;
-      report.fileFormat = req.file.originalname?.split('.').pop() || report.fileFormat || null;
+      report.fileFormat = fileFormat;
 
       if (oldPublicId && oldPublicId !== report.publicId) {
         try {

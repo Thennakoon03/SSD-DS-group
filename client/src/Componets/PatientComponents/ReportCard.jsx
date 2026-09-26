@@ -30,19 +30,29 @@ export const formatDate = (iso) =>
 
 export const isImage = (fmt) => ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes((fmt || '').toLowerCase());
 
+export const getSafeUrl = (url) => {
+  if (!url || typeof url !== 'string') return '#';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+    return trimmed;
+  }
+  return '#';
+};
+
 // ── Report card ───────────────────────────────────────────────────────────────
 const ReportCard = ({ report, onEdit, onDelete }) => {
-  const typeMeta  = REPORT_TYPES.find((t) => t.value === report.reportType) || REPORT_TYPES[4];
-  const colorCls  = TYPE_COLORS[report.reportType] || TYPE_COLORS.other;
-  const TypeIcon  = TYPE_ICONS[report.reportType] || TYPE_ICONS.other;
-  const imgFile   = isImage(report.fileFormat);
+  const typeMeta    = REPORT_TYPES.find((t) => t.value === report.reportType) || REPORT_TYPES[4];
+  const colorCls    = TYPE_COLORS[report.reportType] || TYPE_COLORS.other;
+  const TypeIcon    = TYPE_ICONS[report.reportType] || TYPE_ICONS.other;
+  const imgFile     = isImage(report.fileFormat);
+  const safeFileUrl = getSafeUrl(report.fileUrl);
 
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 sm:p-5 flex gap-4">
       {/* Thumbnail / icon */}
       <div className="shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-        {imgFile ? (
-          <img src={report.fileUrl} alt={report.title} className="w-full h-full object-cover" />
+        {imgFile && safeFileUrl !== '#' ? (
+          <img src={safeFileUrl} alt={report.title} className="w-full h-full object-cover" />
         ) : (
           <TypeIcon className="w-6 h-6 text-gray-400 dark:text-gray-500" />
         )}
@@ -68,16 +78,18 @@ const ReportCard = ({ report, onEdit, onDelete }) => {
 
           {/* Actions */}
           <div className="flex items-center gap-2 shrink-0">
-            <a
-              href={report.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-1 rounded text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition"
-              title="View report"
-              aria-label="View report"
-            >
-              <FiExternalLink className="w-3.5 h-3.5" />
-            </a>
+            {safeFileUrl !== '#' && (
+              <a
+                href={safeFileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1 rounded text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition"
+                title="View report"
+                aria-label="View report"
+              >
+                <FiExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
             <button
               onClick={() => onEdit(report)}
               className="p-1 rounded text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
