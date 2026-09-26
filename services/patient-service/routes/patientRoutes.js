@@ -11,14 +11,14 @@ import {
 } from '../controlles/patientController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { serviceProtect } from '../middlewares/serviceMiddleware.js';
-import { upload } from '../config/cloudinaryConfig.js';
+import { handleProfileImageUpload } from '../middlewares/uploadMiddleware.js';
 
 const router = express.Router();
 
 // register and login are handled by auth-service
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
-router.put('/profile/image', protect, upload.single('profileImage'), uploadProfileImage);
+router.put('/profile/image', protect, handleProfileImageUpload, uploadProfileImage);
 router.put('/change-password', protect, changePassword);
 router.put('/deactivate', protect, deactivateAccount);
 router.delete('/delete', protect, deleteAccount);
