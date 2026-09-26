@@ -262,9 +262,25 @@ const PatientProfile = () => {
     }
   };
 
+  const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
+  const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      toast.error('Only JPEG, PNG, and WebP images are allowed.');
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE) {
+      toast.error('Profile image size exceeds the 2MB limit.');
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+
     const fd = new FormData();
     fd.append('profileImage', file);
     setImageUploading(true);
@@ -272,10 +288,12 @@ const PatientProfile = () => {
       const { data } = await patientAPI.uploadImage(fd);
       setProfile((p) => ({ ...p, profileImage: data.data.profileImage }));
       if (updateUser) updateUser({ profileImage: data.data.profileImage });
-    } catch {
+      toast.success('Profile photo updated.');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to upload profile photo.');
     } finally {
       setImageUploading(false);
-      fileRef.current.value = '';
+      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
@@ -320,7 +338,7 @@ const PatientProfile = () => {
               <FiEdit2 className="w-3 h-3 text-white" />
             )}
           </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+          <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" className="hidden" onChange={handleImageChange} />
         </div>
 
         <div>

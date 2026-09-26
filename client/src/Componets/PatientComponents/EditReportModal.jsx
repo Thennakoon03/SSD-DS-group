@@ -21,11 +21,45 @@ const EditReportModal = ({ report, editing, onClose, onSave }) => {
     setError('');
   }, [report]);
 
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+  const ALLOWED_EXTS  = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+
+  const handleFileChange = (e) => {
+    const selected = e.target.files?.[0] || null;
+    if (!selected) {
+      setFile(null);
+      return;
+    }
+    const ext = '.' + (selected.name.split('.').pop() || '').toLowerCase();
+    if (!ALLOWED_EXTS.includes(ext)) {
+      setError('Invalid file format. Only PDF, JPG, PNG, and WebP are allowed.');
+      setFile(null);
+      return;
+    }
+    if (selected.size > MAX_FILE_SIZE) {
+      setError('File size exceeds the 5MB limit. Please choose a smaller file.');
+      setFile(null);
+      return;
+    }
+    setFile(selected);
+    setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!title.trim()) {
       setError('Title is required.');
+      return;
+    }
+
+    if (title.trim().length > 120) {
+      setError('Title cannot exceed 120 characters.');
+      return;
+    }
+
+    if (description.trim().length > 1000) {
+      setError('Description cannot exceed 1000 characters.');
       return;
     }
 
@@ -60,7 +94,7 @@ const EditReportModal = ({ report, editing, onClose, onSave }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">
-              Replace File <span className="font-normal normal-case text-gray-400">(optional)</span>
+              Replace File <span className="font-normal normal-case text-gray-400">(optional, max 5MB)</span>
             </label>
             <div
               onClick={() => fileRef.current?.click()}
@@ -75,11 +109,8 @@ const EditReportModal = ({ report, editing, onClose, onSave }) => {
                 ref={fileRef}
                 type="file"
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.gif"
-                onChange={(e) => {
-                  setFile(e.target.files?.[0] || null);
-                  setError('');
-                }}
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={handleFileChange}
               />
 
               {file ? (
@@ -104,6 +135,7 @@ const EditReportModal = ({ report, editing, onClose, onSave }) => {
             </label>
             <input
               type="text"
+              maxLength={120}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Blood Test Results"
@@ -132,10 +164,11 @@ const EditReportModal = ({ report, editing, onClose, onSave }) => {
 
           <div>
             <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">
-              Description <span className="font-normal normal-case text-gray-400">(optional)</span>
+              Description <span className="font-normal normal-case text-gray-400">(optional, max 1000 chars)</span>
             </label>
             <textarea
               rows={3}
+              maxLength={1000}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Any notes about this report..."

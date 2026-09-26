@@ -15,10 +15,36 @@ const AddLabReportModal = ({ onClose, onUploaded }) => {
   const [error, setError]         = useState('');
   const fileRef                   = useRef();
 
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+  const ALLOWED_EXTS  = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+
+  const handleFileChange = (e) => {
+    const selected = e.target.files?.[0] || null;
+    if (!selected) {
+      setFile(null);
+      return;
+    }
+    const ext = '.' + (selected.name.split('.').pop() || '').toLowerCase();
+    if (!ALLOWED_EXTS.includes(ext)) {
+      setError('Invalid file format. Only PDF, JPG, PNG, and WebP are allowed.');
+      setFile(null);
+      return;
+    }
+    if (selected.size > MAX_FILE_SIZE) {
+      setError('File size exceeds the 5MB limit. Please choose a smaller file.');
+      setFile(null);
+      return;
+    }
+    setFile(selected);
+    setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file)         { setError('Please select a file.'); return; }
     if (!title.trim()) { setError('Title is required.');    return; }
+    if (title.trim().length > 120) { setError('Title cannot exceed 120 characters.'); return; }
+    if (description.trim().length > 1000) { setError('Description cannot exceed 1000 characters.'); return; }
 
     const fd = new FormData();
     fd.append('file',       file);
@@ -59,7 +85,7 @@ const AddLabReportModal = ({ onClose, onUploaded }) => {
           {/* File picker */}
           <div>
             <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">
-              File <span className="text-red-500">*</span>
+              File <span className="text-red-500">*</span> (Max 5MB)
             </label>
             <div
               onClick={() => fileRef.current?.click()}
@@ -74,8 +100,8 @@ const AddLabReportModal = ({ onClose, onUploaded }) => {
                 ref={fileRef}
                 type="file"
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.gif"
-                onChange={(e) => { setFile(e.target.files[0] || null); setError(''); }}
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={handleFileChange}
               />
               {file ? (
                 <div className="flex items-center justify-center gap-2">
@@ -87,7 +113,7 @@ const AddLabReportModal = ({ onClose, onUploaded }) => {
               ) : (
                 <>
                   <FiUploadCloud className="w-8 h-8 mx-auto text-gray-300 dark:text-gray-600 mb-1" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Click to select PDF, JPG, PNG</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Click to select PDF, JPG, PNG (Max 5MB)</p>
                 </>
               )}
             </div>
@@ -100,6 +126,7 @@ const AddLabReportModal = ({ onClose, onUploaded }) => {
             </label>
             <input
               type="text"
+              maxLength={120}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Blood Test Results – Jan 2026"
@@ -131,10 +158,11 @@ const AddLabReportModal = ({ onClose, onUploaded }) => {
           <div>
             <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">
               Description{' '}
-              <span className="font-normal normal-case text-gray-400">(optional)</span>
+              <span className="font-normal normal-case text-gray-400">(optional, max 1000 chars)</span>
             </label>
             <textarea
               rows={2}
+              maxLength={1000}
               value={description}
               onChange={(e) => setDesc(e.target.value)}
               placeholder="Any notes about this report…"
