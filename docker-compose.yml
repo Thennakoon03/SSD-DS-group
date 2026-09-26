@@ -32,6 +32,7 @@ services:
     environment:
       - PORT=3002
       - PATIENT_SERVICE_URL=http://patient-service:3001
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:3004
     expose:
       - "3002"
     depends_on:

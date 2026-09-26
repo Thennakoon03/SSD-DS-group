@@ -11,7 +11,7 @@ router.get('/', protect, getMyReports);
 
 // Internal service-to-service routes (doctor-service / admin-service) — must be before /:id
 router.get('/internal/patient/:patientId', serviceProtect, getReportsByPatientId);
-router.get('/internal/:id', serviceProtect, getReportByIdInternal);
+router.get('/internal/patient/:patientId/:reportId', serviceProtect, getReportByIdInternal);
 
 router.get('/:id', protect, getReportById);
 router.put('/:id', protect, handleReportUpload, updateReport);
