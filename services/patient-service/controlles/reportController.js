@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Report from '../models/Report.js';
 import cloudinary from '../config/cloudinaryConfig.js';
 
@@ -151,15 +152,24 @@ export const getReportsByPatientId = async (req, res) => {
   }
 };
 
-// Internal — get a single report by ID (called by doctor-service)
+// Internal — get a single report by ID, scoped to its owning patient (called by doctor-service).
+// Requiring both ids prevents an authorized patientId in the URL from being combined
+// with another patient's reportId to retrieve someone else's report.
 export const getReportByIdInternal = async (req, res) => {
   try {
-    const report = await Report.findById(req.params.id);
+    const { patientId, reportId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(reportId) || !mongoose.Types.ObjectId.isValid(patientId)) {
+      return res.status(404).json({ success: false, message: 'Report not found' });
+    }
+
+    const report = await Report.findOne({ _id: reportId, patient: patientId });
     if (!report) {
       return res.status(404).json({ success: false, message: 'Report not found' });
     }
+
     res.json({ success: true, data: report });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch {
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

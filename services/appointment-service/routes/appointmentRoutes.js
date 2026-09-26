@@ -15,6 +15,7 @@ import {
   markPaymentPaid,
   uploadPrescription,
   deletePrescription,
+  checkDoctorPatientAccess,
 } from '../controllers/appointmentController.js';
 import { protect, requireRole, serviceAuth } from '../middlewares/authMiddleware.js';
 import { uploadPrescriptionFile } from '../config/cloudinaryConfig.js';
@@ -47,5 +48,8 @@ router.put('/:id/mark-cash', protect, requireRole('patient'), markPaymentCash);
 // Internal — called by payment-service only
 router.get('/internal/:id/status', serviceAuth, getAppointmentStatusInternal);
 router.put('/:id/payment-status', serviceAuth, updatePaymentStatus);
+
+// Internal — called by doctor-service to authorize patient data access
+router.get('/internal/access/doctor/:doctorId/patient/:patientId', serviceAuth, checkDoctorPatientAccess);
 
 export default router;
