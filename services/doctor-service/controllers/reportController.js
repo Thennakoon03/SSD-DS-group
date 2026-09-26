@@ -48,7 +48,7 @@ export const getPatientReportById = async (req, res) => {
     const SERVICE_KEY = process.env.SERVICE_SECRET_KEY;
 
     const response = await axios.get(
-      `${PATIENT_SERVICE_URL}/api/reports/internal/${req.params.reportId}`,
+      `${PATIENT_SERVICE_URL}/api/reports/internal/patient/${encodeURIComponent(req.params.patientId)}/${encodeURIComponent(req.params.reportId)}`,
       { headers: { 'x-service-key': SERVICE_KEY } }
     );
 
