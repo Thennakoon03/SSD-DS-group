@@ -3,9 +3,10 @@ import { patientAPI } from '../../utils/api';
 import { useAuth } from '../../Context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { FiChevronDown, FiX, FiEdit2, FiPlus } from 'react-icons/fi';
+import GoogleCalendarConnect from '../../Componets/SharedComponents/GoogleCalendarConnect';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const SECTIONS = ['Personal', 'Address', 'Medical', 'Emergency', 'Security'];
+const SECTIONS = ['Personal', 'Address', 'Medical', 'Emergency', 'Integrations', 'Security'];
 
 const GENDER_OPTIONS   = ['Male', 'Female', 'Other'];
 const BLOOD_GROUPS     = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -576,6 +577,13 @@ const PatientProfile = () => {
 
               <SaveButton loading={saving.emergency} />
             </form>
+          )}
+
+          {/* ── Integrations ── */}
+          {active === 'Integrations' && (
+            <div>
+              <GoogleCalendarConnect />
+            </div>
           )}
 
           {/* ── Security ── */}

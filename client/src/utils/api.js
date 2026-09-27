@@ -58,10 +58,18 @@ const showToastDeduped = (type, message) => {
   else toast.error(normalized);
 };
 
+// Telemedicine sessions auto-provision silently on page load (not a user
+// action), so they never get a toast either way — success or error.
+const isSilentRoute = (config) => {
+  const method = (config?.method || "").toLowerCase();
+  const url = config?.url || "";
+  return method === "post" && /\/telemedicine\/sessions\/?$/.test(url);
+};
+
 api.interceptors.response.use(
   (response) => {
     const method = (response.config?.method || "").toLowerCase();
-    const shouldToast = MUTATING_METHODS.has(method);
+    const shouldToast = MUTATING_METHODS.has(method) && !isSilentRoute(response.config);
 
     if (shouldToast) {
       const successMessage = response.data?.message || "Action completed successfully.";
@@ -72,7 +80,7 @@ api.interceptors.response.use(
   },
   (error) => {
     const method = (error.config?.method || "").toLowerCase();
-    const shouldToast = MUTATING_METHODS.has(method);
+    const shouldToast = MUTATING_METHODS.has(method) && !isSilentRoute(error.config);
 
     if (shouldToast) {
       const errorMessage =
@@ -189,6 +197,15 @@ export const telemedicineAPI = {
     api.put(`/telemedicine/sessions/${sessionId}/end`, body),
   cancelSession: (sessionId) =>
     api.put(`/telemedicine/sessions/${sessionId}/cancel`),
+};
+
+// ── Google Calendar integration (OAuth 2.0 Authorization Code + PKCE) ───────
+export const googleCalendarAPI = {
+  getAuthUrl: () => api.get("/appointments/integrations/google-calendar/connect"),
+  exchangeCode: (code, state) =>
+    api.post("/appointments/integrations/google-calendar/callback", { code, state }),
+  getStatus: () => api.get("/appointments/integrations/google-calendar/status"),
+  disconnect: () => api.delete("/appointments/integrations/google-calendar/disconnect"),
 };
 
 // ── Admin endpoints ──────────────────────────────────────────────────────────

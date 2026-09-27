@@ -5,6 +5,7 @@ import PatientLayout from './layouts/PatientLayout';
 import DoctorLayout from './layouts/DoctorLayout';
 import LoginPage  from './Pages/SharedPages/LoginPage';
 import SignupPage from './Pages/SharedPages/SignupPage';
+import GoogleCalendarCallback from './Pages/SharedPages/GoogleCalendarCallback';
 import AllDoctors from './Pages/PatientPages/AllDoctors';
 import ViewDoctor from './Pages/PatientPages/ViewDoctor';
 import PatientProfile from './Pages/PatientPages/PatientProfile';
@@ -60,6 +61,7 @@ const App = () => {
           <Route path="/" element={<Landing />} />
           <Route path="/login"  element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/settings/google-calendar/callback" element={<GoogleCalendarCallback />} />
 
           {/* Patient — all wrapped in PrivateRoute + PatientLayout */}
           <Route
