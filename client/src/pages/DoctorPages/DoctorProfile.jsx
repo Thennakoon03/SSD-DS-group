@@ -3,9 +3,10 @@ import { doctorAPI } from "../../utils/api";
 import { useAuth } from "../../Context/AuthContext";
 import { toast } from "react-hot-toast";
 import { FiChevronDown, FiEdit2 } from "react-icons/fi";
+import GoogleCalendarConnect from "../../Componets/SharedComponents/GoogleCalendarConnect";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const SECTIONS = ["Personal", "Professional", "Address", "Security"];
+const SECTIONS = ["Personal", "Professional", "Address", "Integrations", "Security"];
 
 const SPECIALIZATIONS = [
   "Cardiologist",
@@ -735,6 +736,13 @@ const DoctorProfile = () => {
                 <SaveButton loading={saving.address} />
               </div>
             </form>
+          )}
+
+          {/* ── Integrations ── */}
+          {active === "Integrations" && (
+            <div>
+              <GoogleCalendarConnect />
+            </div>
           )}
 
           {/* ── Security ── */}

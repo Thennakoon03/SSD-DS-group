@@ -22,27 +22,71 @@ const toAgoraUid = (mongoId) => {
   return parseInt(hex, 16) >>> 0; // unsigned 32-bit
 };
 
-export const createSession = async (req, res) => {
-  try {
-    const { appointmentId, patientId, doctorId, scheduledAt, notes } = req.body;
+const APPOINTMENT_SERVICE_URL = () => process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
+const PERMITTED_APPOINTMENT_STATUSES = ['confirmed'];
 
-    if (!appointmentId || !patientId || !doctorId || !scheduledAt) {
-      return res.status(400).json({
-        success: false,
-        message: 'appointmentId, patientId, doctorId, and scheduledAt are required',
-      });
+// Fetches the canonical appointment from appointment-service. Never trusts
+// client-supplied participant/type/status fields for authorization.
+// Returns { appointment } on success or { error: { status, message } } on failure.
+const getCanonicalAppointment = async (appointmentId) => {
+  try {
+    const response = await axios.get(
+      `${APPOINTMENT_SERVICE_URL()}/api/appointments/internal/${appointmentId}/telemedicine`,
+      { headers: { 'x-service-secret': process.env.SERVICE_SECRET }, validateStatus: () => true }
+    );
+
+    if (response.status === 200 && response.data?.success) {
+      return { appointment: response.data.data };
     }
 
-    // Ensure the requester is one of the participants
-    const requesterId = req.user.id;
-    if (requesterId !== patientId && requesterId !== doctorId) {
+    if (response.status === 404) {
+      return { error: { status: 404, message: 'Appointment not found' } };
+    }
+
+    return { error: { status: 503, message: 'Authorization service unavailable' } };
+  } catch {
+    return { error: { status: 503, message: 'Authorization service unavailable' } };
+  }
+};
+
+export const createSession = async (req, res) => {
+  try {
+    const { appointmentId } = req.body;
+
+    if (!appointmentId) {
+      return res.status(400).json({ success: false, message: 'appointmentId is required' });
+    }
+
+    const { appointment, error } = await getCanonicalAppointment(appointmentId);
+    if (error) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+
+    // Caller must be an actual participant, with the role matching the appointment record
+    const { id: requesterId, role } = req.user;
+    const isPatient = role === 'patient' && requesterId === appointment.patientId;
+    const isDoctor  = role === 'doctor'  && requesterId === appointment.doctorId;
+    if (!isPatient && !isDoctor) {
       return res.status(403).json({
         success: false,
         message: 'Only the patient or doctor of this appointment can create a session',
       });
     }
 
-    // Prevent duplicate sessions for the same appointment
+    if (appointment.type !== 'telemedicine') {
+      return res.status(400).json({ success: false, message: 'Appointment is not a telemedicine appointment' });
+    }
+
+    if (!PERMITTED_APPOINTMENT_STATUSES.includes(appointment.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot create a session for an appointment with status "${appointment.status}"`,
+      });
+    }
+
+    // Prevent duplicate sessions for the same appointment.
+    // Authorization above has already run, so it's safe to disclose the existing session
+    // to this caller — they are a verified participant of this appointment.
     const existing = await Session.findOne({ appointmentId });
     if (existing) {
       return res.status(409).json({
@@ -57,11 +101,10 @@ export const createSession = async (req, res) => {
 
     const session = await Session.create({
       appointmentId,
-      patientId,
-      doctorId,
+      patientId:   appointment.patientId,
+      doctorId:    appointment.doctorId,
       channelName,
-      scheduledAt: new Date(scheduledAt),
-      notes: notes || null,
+      scheduledAt: new Date(appointment.appointmentDate),
     });
 
     res.status(201).json({ success: true, data: session });
@@ -75,11 +118,11 @@ export const createSession = async (req, res) => {
           message: 'A telemedicine session already exists for this appointment',
           data: existing,
         });
-      } catch (fetchErr) {
-        return res.status(500).json({ success: false, message: fetchErr.message });
+      } catch {
+        return res.status(500).json({ success: false, message: 'Internal server error' });
       }
     }
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 

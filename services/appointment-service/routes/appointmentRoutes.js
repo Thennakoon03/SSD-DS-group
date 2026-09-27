@@ -16,6 +16,7 @@ import {
   uploadPrescription,
   deletePrescription,
   checkDoctorPatientAccess,
+  getTelemedicineAppointmentInternal,
 } from '../controllers/appointmentController.js';
 import { protect, requireRole, serviceAuth } from '../middlewares/authMiddleware.js';
 import { uploadPrescriptionFile } from '../config/cloudinaryConfig.js';
@@ -51,5 +52,8 @@ router.put('/:id/payment-status', serviceAuth, updatePaymentStatus);
 
 // Internal — called by doctor-service to authorize patient data access
 router.get('/internal/access/doctor/:doctorId/patient/:patientId', serviceAuth, checkDoctorPatientAccess);
+
+// Internal — called by telemedicine-service to authorize session creation
+router.get('/internal/:id/telemedicine', serviceAuth, getTelemedicineAppointmentInternal);
 
 export default router;

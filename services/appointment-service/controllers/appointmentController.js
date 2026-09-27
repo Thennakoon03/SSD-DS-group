@@ -1,6 +1,8 @@
+import mongoose from 'mongoose';
 import Appointment from '../models/Appointment.js';
 import axios from 'axios';
 import cloudinary from '../config/cloudinaryConfig.js';
+import { syncAppointmentToCalendar, removeAppointmentFromCalendar } from './googleCalendarController.js';
 
 // ── Notification helper ────────────────────────────────────────────────────
 // Fire-and-forget: never blocks or fails the main operation
@@ -249,6 +251,11 @@ export const updateAppointmentStatus = async (req, res) => {
       })();
     }
 
+    // Fire-and-forget: sync to any connected participants' Google Calendars
+    if (status === 'confirmed') {
+      syncAppointmentToCalendar(appointment);
+    }
+
     res.json({ success: true, message: 'Appointment status updated', data: appointment });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -301,6 +308,9 @@ export const cancelAppointment = async (req, res) => {
         cancellationReason: cancellationReason || null,
       });
     })();
+
+    // Fire-and-forget: remove from any connected participants' Google Calendars
+    removeAppointmentFromCalendar(appointment);
 
     res.json({ success: true, message: 'Appointment cancelled', data: appointment });
   } catch (error) {
@@ -419,6 +429,42 @@ export const checkDoctorPatientAccess = async (req, res) => {
     res.json({ success: true, authorized: true });
   } catch {
     res.status(500).json({ success: false, authorized: false, message: 'Internal server error' });
+  }
+};
+
+// Internal (telemedicine-service): Return the minimum canonical appointment
+// fields needed to authorize telemedicine session creation. Never returns
+// notes, prescriptions, or other unrelated appointment data.
+export const getTelemedicineAppointmentInternal = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    const appointment = await Appointment.findById(id).select(
+      'patientId doctorId type status appointmentDate appointmentTime'
+    );
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: appointment._id,
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+        type: appointment.type,
+        status: appointment.status,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+      },
+    });
+  } catch {
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 

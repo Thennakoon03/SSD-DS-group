@@ -106,12 +106,7 @@ const TelemedicineRoom = () => {
         } catch (e) {
           if (e.response?.status === 404) {
             try {
-              const { data: createRes } = await telemedicineAPI.createSession({
-                appointmentId,
-                patientId:   appt.patientId,
-                doctorId:    appt.doctorId,
-                scheduledAt: appt.appointmentDate,
-              });
+              const { data: createRes } = await telemedicineAPI.createSession(appointmentId);
               sess = createRes.data;
             } catch (createErr) {
               if (createErr.response?.status === 409) {
