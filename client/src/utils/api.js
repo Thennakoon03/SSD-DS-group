@@ -176,7 +176,7 @@ export const reportAPI = {
 
 // ── Telemedicine endpoints ────────────────────────────────────────────────────
 export const telemedicineAPI = {
-  createSession: (body) => api.post("/telemedicine/sessions", body),
+  createSession: (appointmentId) => api.post("/telemedicine/sessions", { appointmentId }),
   getByAppointment: (apptId) =>
     api.get(`/telemedicine/sessions/appointment/${apptId}`),
   getSession: (sessionId) => api.get(`/telemedicine/sessions/${sessionId}`),
